@@ -1,64 +1,166 @@
-# Sample project
+# הנדסת איכות תוכנה - סדנה - שלב ב' 
 
-* Use this project as a template.
-* Clone the project:
-    * Using user/password: `git clone https://github.com/aviram26/sqe-workshop-2018-sample-project.git` 
-    * Using SSH key: `git clone git@github.com:aviram26/sqe-workshop-2018-sample-project.git`
-* Install all libraries run: `npm install`
-* For code parsing, this project uses the [Esprima](http://esprima.org/) library.
-    * See example usage in `src/js/code-analyzer.js`
-* Run the project:
-    * From the command-line run: `npm start`
-    * After the bundler is done, execute the `index.html` from your IDE (preferably `WebStorm`)
-    * Try the parser... 
-* For testing, this project uses the [Mocha](https://mochajs.org/) library.
-    * From the command-line run: `npm run test`
-    * See example test in `test/code-analyzer.test.js`
-* For coverage, this project uses the [nyc](https://github.com/istanbuljs/nyc) library.
-    * From the command-line run: `npm run coverage`
-    * See the report file `coverage/coverage-summary.json`
-* For linting, this project uses the [ESLint](https://eslint.org/) library.
-    * From the command-line run: `npm run lint`
-    * See the report file `lint/eslint-report.json`
+### נושא: symbolic substitution  
+בשלב זה יפותח רכיב מערכת שהקלט שלו מורכב מ:
+* קטע קוד הכולל פונציה ומשתנים נוספים (לא בהכרח בסדר הזה)
+* קלט לפונקציה בפורמט הבא:
+    * agr-1, arg-2, ..., arg-n
+    * מחרוזת "תעטף" בגרש או גרשיים. דוגמה: 'hello world'
+    * ערך מספרי או בוליאני. דוגמה: 1, true, 3.14
+    * מערך יופיע "עטוף" בסוגריים מרובעים. דוגמה: [1, 2, 3], [hello', 5, true']
 
-#### I/O Example
+והפלט שלו מורכב מהחלקים הבאים:
+* הפונקציה, לאחר שעברה תהליך של **symbolic substitution**
+* כל ה statements בפונקציה החדשה שהן פרדיקטים מסוג if-else, במסלול שנגזר מהקלט יצבעו על פי המדיניות הבאה:
+    * ערך האמת שלהם ע"פ הקלט הנתון הוא אמת - צבע רקע ירוק
+    * ערך האמת שלהם ע"פ הקלט הנתון הוא שקר - צבע רקע אדום
+    * צבעי הרקע לא יסתירו את הטקסט
 
-The input:
+* פונקצית הקלט תוכל לכלול:
+    * הגדרה והשמה של משתנים
+    * תנאים מסוג if - else-if - else
+    * לולאות while
+    
+* בתנאי if-else ובתנאי הלולאה יבוצע שימוש במשתנים מה input-vector או משתנים לוקאליים שניתנים לביטוי ע"י ה input-vector
 
-```javascript
-function binarySearch(X, V, n){
-    let low, high, mid;
-    low = 0;
-    high = n - 1;
-    while (low <= high) {
-        mid = (low + high)/2;
-        if (X < V[mid])
-            high = mid - 1;
-        else if (X > V[mid])
-            low = mid + 1;
-        else
-            return mid;
+
+* דוגמאות ל symbolic-substitution:
+
+```javascript 1.7
+function foo(x, y, z){
+    let a = x + 1;
+    let b = a + y;
+    let c = 0;
+    
+    if (b < z) {
+        c = c + 5;
+        return x + y + z + c;
+    } else if (b < z * 2) {
+        c = c + x + 5;
+        return x + y + z + c;
+    } else {
+        c = c + z + 5;
+        return x + y + z + c;
     }
-    return -1;
 }
 ```
 
-Should produce:
+```javascript 1.7
+function foo(x, y, z){
+    if (x + 1 + y < z) {
+        return x + y + z + 5;
+    } else if (x + 1 + y < z * 2) {
+        return x + y + z + x + 5;
+    } else {
+        return x + y + z + z + 5;
+    }
+}
+```
+-----------------------
 
-Line | Type | Name | Condition | Value
---- | --- | --- | --- | ---
-1 | function declaration | binarySearch 
-1 | variable declaration | X
-1 | variable declaration | V
-... | ... | ... | ... | ...
-2 | variable declaration | low | | null (or nothing)
-... | ... | ... | ... | ...
-3 | assignment expression | low | | 0
-4 | assignment expression | high | | n - 1
-5 | while statement | | low <= high | 
-... | ... | ... | ... | ...
-7 | if statement | | X < V[mid] |
-... | ... | ... | ... | ... 
-9 | else if statement | | X > V[mid] |
-... | ... | ... | ... | ... 
-12 | return statement | | | mid
+```javascript 1.7
+function foo(x, y, z){
+    let a = x + 1;
+    let b = a + y;
+    let c = 0;
+    
+    while (a < z) {
+        c = a + b;
+        z = c * 2;
+    }
+    
+    return z;
+}
+```
+
+```javascript 1.7
+function foo(x, y, z){
+    while (x + 1 < z) {
+        z = (x + 1 + x + 1 + y) * 2;
+    }
+    
+    return z;
+}
+```
+-----------------------
+
+*  לא תנתן פונקציה שבה משתנים לוקאליים בתנאי לא ניתנים לפירוש מיידי ע"י ה input-vector
+
+בדוגמה הבאה המשתנה c לא ניתן לפירוש מיידי  
+
+```javascript 1.7
+function foo(x, y, z){
+    let a = x + 1;
+    let b = a + y;
+    let c = 0;
+    
+    while (c++ < 10) {
+        a = x * y;
+        z = a * b * c;
+    }
+    
+    return z;
+}
+```
+
+* דוגמה לצביעה של מסלול:
+
+עבור הקלט (x=1, y=2, z=3) והפונקציה:
+```javascript 1.7
+function foo(x, y, z){
+    let a = x + 1;
+    let b = a + y;
+    let c = 0;
+    
+    if (b < z) {
+        c = c + 5;
+        return x + y + z + c;
+    } else if (b < z * 2) {
+        c = c + x + 5;
+        return x + y + z + c;
+    } else {
+        c = c + z + 5;
+        return x + y + z + c;
+    }
+}
+```
+
+התוצאה תהיה:
+
+```javascript 1.7
+function foo(x, y, z){
+    if (x + 1 + y < z) {                //this line is red
+        return x + y + z + 5;
+    } else if (x + 1 + y < z * 2) {     //this line is green
+        return x + y + z + x + 5; 
+    } else {
+        return x + y + z + z + 5;
+    }
+}
+```
+-----------------------
+
+
+כללים:
+* עבור המימוש יכתבו בדיקות יחידה בכיסוי של 100%.
+* מומלץ לבנות את הקוד בצורה מודולרית.
+* הקלט  יהיה חוקי.
+* הפלט יופיע על המסך בצורה ויזואלית (view) אך קיימת חובה להחזיק ברקע את המידע בצורה של אובייקטים או מבני נתונים יעודיים.
+
+
+הרכב הציון:
+
+בדיקה אוטומטית:
+* מס' טסטים שעברו / מס' טסטים כולל - מינימום של 10 טסטים - 15%
+* אחוז כיסוי קוד - 15%
+* 15% - Max (0, 100 - (כמות שגיאות כלי אנליזה סטטית))
+
+בדיקה ידנית:
+* שתי בדיקות ידניות - 55%
+
+
+בנוסף:
+* כלי הבדיקה האוטומטיים ניתנים לסטודנטים לשם קבלת מדדים בזמן הפיתוח.
+* תתבצע בדיקה אוטומטית להעתקות של קוד.
+* https://github.com/aviram26/sqe-workshop-2018-sample-project  פרויקט לדוגמה נמצא כאן:
+* הפרויקט מכיל דוגמת קוד מלאה, דוגמה לקלט/פלט, כלים אפשריים לניתוח קוד וסקריפטים לביצוע הבדיקות הרלוונטיות
