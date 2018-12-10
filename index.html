@@ -1,62 +1,44 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
+<head>
+    <meta charset="UTF-8">
 
-        <style>
-            table {
-                width: 100%;
-                height: 100%;
-            }
+    <style>
+        table {
+            width: 100%;
+            height: 100%;
+        }
 
-            .textAreaWrapper {
-                width: 100%;
-                height: 80vh;
-            }
+        .textAreaWrapper {
+            width: 100%;
+            height: 80vh;
+        }
 
-            textarea {
-                width: 80%;
-                height: 95%;
-            }
-        </style>
-    </head>
-    <body>
-        <table>
-            <tr>
-                <td>
-                    <div>
-                        <label>Enter code here</label>
-                    </div>
-                </td>
-                <td>
-                    <div>
-                        <label>Parsed code here</label>
-                    </div>
-                </td>
-            </tr>
-            <tr>
-                <td>
-                    <div class="textAreaWrapper">
-                        <textarea id="codePlaceholder" title="Enter code here"></textarea>
-                    </div>
-                </td>
-                <td>
-                    <div class="textAreaWrapper">
-                        <textarea id="parsedCode" title="Parse code"></textarea>
-                    </div>
-                </td>
-            </tr>
-            <tr>
-                <td>
-                    <div>
-                        <button id="codeSubmissionButton">Parse code</button>
-                    </div>
-                </td>
-                <td>
-                </td>
-            </tr>
-        </table>
+        textarea {
+            width: 80%;
+            height: 95%;
+        }
+    </style>
+</head>
+<body>
+<div>
 
-        <script src="dist/bundle.js"></script>
-    </body>
+    <div class="textAreaWrapper">
+        <label>Enter code here</label>
+        <textarea id="codePlaceholder" title="Enter code here"></textarea>
+    </div>
+    <div>
+        <label>Enter Input Here:</label>
+        <input id="functionInput" title="Parse code">
+    </div>
+    <div class="textAreaWrapper">
+        <label>Output</label>
+        <textarea id="parsedCode" title="Parse code"></textarea>
+    </div>
+
+    <button id="codeSubmissionButton">Parse code</button>
+
+</div>
+<script src="dist/bundle.js"></script>
+</body>
 </html>
