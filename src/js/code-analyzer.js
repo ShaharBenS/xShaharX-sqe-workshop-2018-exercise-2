@@ -1,8 +1,18 @@
 import * as esprima from 'esprima';
+let beautify = require('js-beautify');
+
 
 let legalCharacters = ['+', '-', '/', '*', '<', '>', '=', '&', '|', '(', ')', ';', ',', '^'];
 let charactersParenthesisRight = ['/', '*', '(', '['];
 let charactersParenthesisLeft = ['/', '*', ')'];
+
+function copyMap(map){
+    let new_map = new Map();
+    Array.prototype.forEach.call(Object.keys(map),(key)=>{
+        new_map[key] = map[key];
+    });
+    return new_map;
+}
 
 function substituteExpression(expression, vars) {
     let expression_as_string = originalCode.substring(expression.range[0], expression.range[1]);
@@ -69,70 +79,124 @@ function substituteExpression(expression, vars) {
     return expression_as_string;
 }
 
-function substituteLine(statement, vars) {
-    let lines_to_delete = [];
+function substituteLine(statement, vars, should_return_line_on_variable_dec,parsed_function_params) {
+    let substitutedCode = '';
 
     if (statement.type === 'VariableDeclaration') {
         //TODO: support arrays vars.
-        lines_to_delete.push(statement.loc.start.line);
+        //lines_to_delete.push(statement.loc.start.line);
         if (statement.declarations[0].type === 'VariableDeclarator') {
             vars[statement.declarations[0].id.name] = substituteExpression(statement.declarations[0].init, vars);
+            if(should_return_line_on_variable_dec){
+                return {'substitutedCode':statement.kind +' '+ statement.declarations[0].id.name + ' = '+vars[statement.declarations[0].id.name]+';\n','vars':vars};
+            }
         }
     }
     else if (statement.type === 'IfStatement') {
+        let alternate = statement.alternate;
+        substitutedCode += 'if('+substituteExpression(statement.test,vars)+')\n';
+        let returnValue = substituteLine(statement.consequent,copyMap(vars),false,parsed_function_params);
+        substitutedCode += returnValue.substitutedCode;
+        while(alternate.type != null && alternate.type === 'IfStatement'){
+            substitutedCode += 'else if('+substituteExpression(statement.test,vars)+')\n';
+            returnValue = substituteLine(statement.consequent,copyMap(vars),false,parsed_function_params);
+            substitutedCode += returnValue.substitutedCode;
+            alternate = alternate.alternate;
+        }
+        if(alternate != null){
+            substitutedCode += 'else('+substituteExpression(statement.test,vars)+')\n';
+            returnValue = substituteLine(statement.consequent,copyMap(vars),false,parsed_function_params);
+            substitutedCode += returnValue.substitutedCode;
+        }
 
+    }
+    else if(statement.type === 'BlockStatement'){
+        substitutedCode+='{\n';
+        statement.body.reduce((vars, statement) => {
+            let return_value = substituteLine(statement, vars, false, parsed_function_params);
+            substitutedCode += return_value.substitutedCode;
+            return return_value.vars;
+        }, vars);
+        substitutedCode+='}\n';
     }
     else if (statement.type === 'ExpressionStatement') {
-
+        if (statement.expression.type === 'AssignmentExpression'){
+            if(statement.expression.left.type === 'Identifier'){
+                let substitutedExpression = substituteExpression(statement.expression.right,vars);
+                if(parsed_function_params.indexOf(statement.expression.left.name) < 0 && globalVars.indexOf(statement.expression.left.name) < 0){
+                    vars[statement.expression.left.name] = substitutedExpression;
+                }
+                else{
+                    // Assignment into function parameter
+                    substitutedCode += originalCode.substring(statement.expression.left.range[0],statement.expression.left.range[1])
+                        + ' = '+substitutedExpression+';\n';
+                }
+            }
+            //TODO: add array support
+        }
+        //TODO: check if there are more cases other than 'AssignmentExpression'
     }
     else if (statement.type === 'WhileStatement') {
-
+        substitutedCode += 'while('+substituteExpression(statement.test,vars)+')\n';
+        let returnValue = substituteLine(statement.body,copyMap(vars),false,parsed_function_params);
+        substitutedCode += returnValue.substitutedCode;
     }
     else if (statement.type === 'ReturnStatement'){
-        substituteExpression(statement.argument,vars);
+        substitutedCode += 'return ' + substituteExpression(statement.argument,vars) +';\n';
     }
-    return {'vars': vars, 'lines_to_delete': lines_to_delete};
+    return {'vars': vars, 'substitutedCode': substitutedCode};
 }
 
-function symbolicSubstitution(codeToParse) {
-    let lines_to_delete = [];
+function symbolicSubstitution(parsedCode) {
+    let substitutedCode_before = '';
+    let substitutedCode_after = '';
+    let _function = null;
+    let substitutedCode_function = '';
     let global_vars = new Map();
-    Array.prototype.forEach.call(codeToParse.body, (line) => {
-        if (line === 'VariableDeclaration') {
-            substituteLine(line,global_vars);
+    Array.prototype.forEach.call(parsedCode.body, (line) => {
+        if (line.type === 'VariableDeclaration') {
+            if (_function == null) {
+                let returnValue = substituteLine(line, global_vars, true);
+                global_vars = returnValue.vars;
+                substitutedCode_before += returnValue.substitutedCode;
+            } else {
+                let returnValue = substituteLine(line, global_vars, true);
+                global_vars = returnValue.vars;
+                substitutedCode_after += returnValue.substitutedCode;
+            }
         }
-        if (line === 'FunctionDeclaration') {
-            /*let parsedFunctionParams = line.params.map((param) => {
-                return param.name;
-            });*/
-            line.body.body.reduce((vars, statement) => {
-                let return_value = substituteLine(statement, vars);
-                lines_to_delete = lines_to_delete.concat(return_value.lines_to_delete);
-                return return_value.vars;
-            }, global_vars);
+        if (line.type === 'FunctionDeclaration') {
+            _function = line;
         }
     });
+    globalVars = Object.keys(global_vars);
+    let parsedFunctionParams = _function.params.map((param) => {
+        return param.name;
+    });
+    substitutedCode_function += originalCode.substring(_function.range[0],_function.body.range[0]) + '{';
+    substitutedCode_function += '\n';
+    _function.body.body.reduce((vars, statement) => {
+        let return_value = substituteLine(statement, vars, false, parsedFunctionParams);
+        substitutedCode_function += return_value.substitutedCode;
+        return return_value.vars;
+    }, global_vars);
 
-    let lines = originalCode.split('\n');
-    for (let i = 0; i < lines_to_delete; i++) {
-        lines.splice(lines_to_delete[i], 1);
-    }
+    substitutedCode_function += '}\n';
 
-    return lines_to_delete;
+    return beautify(substitutedCode_before+substitutedCode_function+substitutedCode_after,{indent_size:4});
 }
 
 function colorFunction(functionCode, input) {
-    return functionCode + input;
+
 }
 
-var originalCode = '';
+let globalVars = [];
+let originalCode = '';
 const parseCode = (codeToParse, functionInput) => {
     originalCode = codeToParse;
     let parsedCode = esprima.parseScript(codeToParse, {loc: true, range: true});
-
     let substitutedCode = symbolicSubstitution(parsedCode);
-    let coloredLines = colorFunction(substitutedCode, functionInput);
-
+    let coloredLines = colorFunction(esprima.parseScript(substitutedCode), functionInput);
     //let returnValue = {code: substitutedCode, colors: coloredLines};
     return substitutedCode;
 
