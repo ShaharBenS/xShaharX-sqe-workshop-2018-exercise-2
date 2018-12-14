@@ -28,12 +28,17 @@
         <textarea id="codePlaceholder" title="Enter code here"></textarea>
     </div>
     <div>
-        <label>Enter Input Here:</label>
-        <input id="functionInput" title="Parse code">
+        <label>Enter Input Here (In the same order of function parameters):</label>
+        <div id="input_div" style='flex-direction: row-reverse'>
+        </div>
+        <button id="add-input-button">Add Input</button>
     </div>
     <div class="textAreaWrapper">
         <label>Output</label>
-        <textarea id="parsedCode" title="Parse code"></textarea>
+        <p id="parsedCode">
+
+        </p>
+        <!--<textarea id="parsedCode" title="Parse code"></textarea>-->
     </div>
 
     <button id="codeSubmissionButton">Parse code</button>
