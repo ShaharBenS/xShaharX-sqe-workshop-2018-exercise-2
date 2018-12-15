@@ -1,10 +1,11 @@
+/* eslint-disable max-lines-per-function,no-unused-vars,no-unused-function */
 import * as esprima from 'esprima';
 import * as escodegen from 'escodegen';
 
 let beautify = require('js-beautify');
 
-let legalCharacters = ['+', '-', '/', '*', '<', '>', '=', '&', '|', '(', ')', ';', ',', '^','[',']'];
-let charactersParenthesisRight = ['/', '*', '(', '['];
+let legalCharacters = ['+', '-', '/', '*', '<', '>', '=', '&', '|', '(', ')', ';', ',', '^','[',']','.'];
+let charactersParenthesisRight = ['/', '*', '(', '[','.'];
 let charactersParenthesisLeft = ['/', '*', ')'];
 
 function copyMap(map){
@@ -18,8 +19,8 @@ function copyMap(map){
 function substituteExpression(expression, vars) {
     let expression_as_string = originalCode.substring(expression.range[0], expression.range[1]);
     Object.keys(vars).forEach((key) => {
-        let index = expression_as_string.search(key);
-        if (index >= 0) {
+        let index;
+        while ((index = expression_as_string.search(key)) >= 0) {
             let start_left = index, start_right = index + key.length - 1;
             while (expression_as_string[--start_left] === ' ') {/*MAGIC*/}
             while (expression_as_string[++start_right] === ' ') {/*MAGIC*/}
@@ -160,13 +161,15 @@ function symbolicSubstitution(parsedCode) {
     Array.prototype.forEach.call(parsedCode.body, (line) => {
         if (line.type === 'VariableDeclaration') {
             if (_function == null) {
-                let returnValue = substituteLine(line, global_vars, true);
-                global_vars = returnValue.vars;
-                substitutedCode_before += returnValue.substitutedCode;
+                //let returnValue = substituteLine(line, global_vars, true);
+                //global_vars = returnValue.vars;
+                //substitutedCode_before += returnValue.substitutedCode;
+                substitutedCode_before += originalCode.substring(line.range[0],line.range[1]);
             } else {
-                let returnValue = substituteLine(line, global_vars, true);
-                global_vars = returnValue.vars;
-                substitutedCode_after += returnValue.substitutedCode;
+                //let returnValue = substituteLine(line, global_vars, true);
+                //global_vars = returnValue.vars;
+                //substitutedCode_after += returnValue.substitutedCode;
+                substitutedCode_after += originalCode.substring(line.range[0],line.range[1]);
             }
         }
         if (line.type === 'FunctionDeclaration') {
@@ -184,7 +187,7 @@ function symbolicSubstitution(parsedCode) {
         let return_value = substituteLine(statement, vars, false, parsedFunctionParams);
         substitutedCode_function += return_value.substitutedCode;
         return return_value.vars;
-    }, global_vars);
+    }, new Map() /*global_vars*/);
 
     substitutedCode_function += '}\n';
 
@@ -198,13 +201,13 @@ function getColoredLines(line,func_and_global_vars) {
         let alternate = line.alternate;
         let expression_to_eval = escodegen.generate(line.test);
         expression_to_eval = substituteVars(expression_to_eval,func_and_global_vars);
-        alert(expression_to_eval);
         let evaluated_expression = eval(expression_to_eval);
         if(evaluated_expression){
             done = true;
         }
         coloredLines.push({'line':line.loc.start.line,
             'color':evaluated_expression ? 'green' : 'red'});
+        coloredLines = coloredLines.concat(getColoredLines(line.consequent,func_and_global_vars));
         while(alternate != null && alternate.type === 'IfStatement'){
             expression_to_eval = escodegen.generate(alternate.test);
             expression_to_eval = substituteVars(expression_to_eval,func_and_global_vars);
@@ -220,19 +223,21 @@ function getColoredLines(line,func_and_global_vars) {
                 coloredLines.push({'line':alternate.loc.start.line,
                     'color':evaluated_expression ? 'green' : 'red'});
             }
+            coloredLines = coloredLines.concat(getColoredLines(alternate.consequent,func_and_global_vars));
             alternate = alternate.alternate;
         }
         if(alternate != null){
             coloredLines.push({'line':alternate.loc.start.line,
                 'color': !done ? 'green' : 'red'});
+            coloredLines = coloredLines.concat(getColoredLines(alternate,func_and_global_vars));
         }
     }
-    else if (line.type === 'WhileStatement') {
+    /*else if (line.type === 'WhileStatement') {
         let expression_to_eval = escodegen.generate(line.test);
         expression_to_eval = substituteVars(expression_to_eval,func_and_global_vars);
         coloredLines.push({'line':line.loc.start.line,
             'color':eval(expression_to_eval) ? 'green' : 'red'});
-    }
+    }*/
     else if(line.type === 'BlockStatement'){
         Array.prototype.forEach.call(line.body,(line)=>{
             coloredLines = coloredLines.concat(getColoredLines(line,func_and_global_vars));
@@ -244,8 +249,8 @@ function getColoredLines(line,func_and_global_vars) {
 
 function substituteVars(expression,func_and_global_vars) {
     Array.prototype.forEach.call(Object.keys(func_and_global_vars),(key) => {
-        let index = expression.search(key);
-        if (index >= 0) {
+        let index;
+        while ((index = expression.search(key)) >= 0) {
             let start_left = index, start_right = index + key.length - 1;
             while (expression[--start_left] === ' ') {/*MAGIC*/}
             while (expression[++start_right] === ' ') {/*MAGIC*/}
@@ -294,13 +299,7 @@ function substituteVars(expression,func_and_global_vars) {
                 }
             }
             if (should_substitute) {
-                let new_string = func_and_global_vars[key];
-                if(typeof new_string === 'string' || new_string instanceof String){
-                    new_string = '"'+new_string+'"';
-                }
-                if(new_string.constructor === Array){
-                    new_string = '['+new_string+']';
-                }
+                let new_string = JSON.stringify(func_and_global_vars[key]);
                 if (with_parenthesis) {
                     new_string = '(' + new_string + ')';
                 }

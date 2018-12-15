@@ -10,6 +10,7 @@ $(document).ready(function () {
             inputs.push(document.getElementById('input_'+i).value);
         }
         let coloredCode = parseCode(codeToParse,inputs);
+        alert(coloredCode);
         document.getElementById('parsedCode').innerHTML = coloredCode;
     });
 
