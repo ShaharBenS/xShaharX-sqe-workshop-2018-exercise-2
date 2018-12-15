@@ -4,9 +4,9 @@ import * as escodegen from 'escodegen';
 
 let beautify = require('js-beautify');
 
-let legalCharacters = ['+', '-', '/', '*', '<', '>', '=', '&', '|', '(', ')', ';', ',', '^','[',']','.'];
+let legalCharacters = ['+', '-', '/', '*', '<', '>', '=', '&', '|', '(', ')', ';', ',', '^','[',']','.','!'];
 let charactersParenthesisRight = ['/', '*', '(', '[','.'];
-let charactersParenthesisLeft = ['/', '*', ')'];
+let charactersParenthesisLeft = ['/', '*', ')','!'];
 
 function copyMap(map){
     let new_map = new Map();
@@ -16,11 +16,22 @@ function copyMap(map){
     return new_map;
 }
 
+function getIndicesOf(searchStr, str) {
+    let searchStrLen = searchStr.length;
+    let startIndex = 0, index, indices = [];
+    while ((index = str.indexOf(searchStr, startIndex)) > -1) {
+        indices.push(index);
+        startIndex = index + searchStrLen;
+    }
+    return indices;
+}
+
 function substituteExpression(expression, vars) {
     let expression_as_string = originalCode.substring(expression.range[0], expression.range[1]);
     Object.keys(vars).forEach((key) => {
-        let index;
-        while ((index = expression_as_string.search(key)) >= 0) {
+        let indices = getIndicesOf(key,expression_as_string);
+        indices.reverse();
+        Array.prototype.forEach.call(indices,(index)=>{
             let start_left = index, start_right = index + key.length - 1;
             while (expression_as_string[--start_left] === ' ') {/*MAGIC*/}
             while (expression_as_string[++start_right] === ' ') {/*MAGIC*/}
@@ -68,7 +79,6 @@ function substituteExpression(expression, vars) {
                     }
                 }
             }
-
             if (should_substitute) {
                 let new_string = vars[key];
                 if (with_parenthesis) {
@@ -76,7 +86,7 @@ function substituteExpression(expression, vars) {
                 }
                 expression_as_string = expression_as_string.substr(0, index) + new_string + expression_as_string.substr(index + key.length);
             }
-        }
+        });
     });
     return expression_as_string;
 }
@@ -87,12 +97,12 @@ function substituteLine(statement, vars, should_return_line_on_variable_dec,pars
     if (statement.type === 'VariableDeclaration') {
         //TODO: support arrays vars.
         //lines_to_delete.push(statement.loc.start.line);
-        if (statement.declarations[0].type === 'VariableDeclarator') {
-            vars[statement.declarations[0].id.name] = substituteExpression(statement.declarations[0].init, vars);
-            if(should_return_line_on_variable_dec){
-                return {'substitutedCode':statement.kind +' '+ statement.declarations[0].id.name + ' = '+vars[statement.declarations[0].id.name]+';\n','vars':vars};
-            }
-        }
+        //if (statement.declarations[0].type === 'VariableDeclarator') {
+        vars[statement.declarations[0].id.name] = substituteExpression(statement.declarations[0].init, vars);
+        /*if(should_return_line_on_variable_dec){
+            return {'substitutedCode':statement.kind +' '+ statement.declarations[0].id.name + ' = '+vars[statement.declarations[0].id.name]+';\n','vars':vars};
+        }*/
+        //}
     }
     else if (statement.type === 'IfStatement') {
         let alternate = statement.alternate;
@@ -122,22 +132,21 @@ function substituteLine(statement, vars, should_return_line_on_variable_dec,pars
         substitutedCode+='}\n';
     }
     else if (statement.type === 'ExpressionStatement') {
-        if (statement.expression.type === 'AssignmentExpression'){
-            if(statement.expression.left.type === 'Identifier'){
-                let substitutedExpression = substituteExpression(statement.expression.right,vars);
-                if(parsed_function_params.indexOf(statement.expression.left.name) < 0 && globalVars.indexOf(statement.expression.left.name) < 0){
-                    vars[statement.expression.left.name] = substitutedExpression;
-                }
-                else{
-                    // Assignment into function parameter
-                    substitutedCode += originalCode.substring(statement.expression.left.range[0],statement.expression.left.range[1])
-                        + ' = '+substitutedExpression+';\n';
-                }
-            }
-            if(statement.expression.left.type === 'MemberExpression'){
-                //TODO: add array support
-            }
+        //if (statement.expression.type === 'AssignmentExpression'){
+        //    if(statement.expression.left.type === 'Identifier'){
+        let substitutedExpression = substituteExpression(statement.expression.right, vars);
+        if (parsed_function_params.indexOf(statement.expression.left.name) < 0 && globalVars.indexOf(statement.expression.left.name) < 0) {
+            vars[statement.expression.left.name] = substitutedExpression;
+        } else {
+            // Assignment into function parameter
+            substitutedCode += originalCode.substring(statement.expression.left.range[0], statement.expression.left.range[1])
+                + ' = ' + substitutedExpression + ';\n';
         }
+        //     }
+        /*if(statement.expression.left.type === 'MemberExpression'){
+            //TODO: add array support
+        }*/
+        //}
         //TODO: check if there are more cases other than 'AssignmentExpression'
     }
     else if (statement.type === 'WhileStatement') {
@@ -145,7 +154,7 @@ function substituteLine(statement, vars, should_return_line_on_variable_dec,pars
         let returnValue = substituteLine(statement.body,copyMap(vars),false,parsed_function_params);
         substitutedCode += returnValue.substitutedCode;
     }
-    else if (statement.type === 'ReturnStatement'){
+    else /*if (statement.type === 'ReturnStatement')*/{
         substitutedCode += 'return ' + substituteExpression(statement.argument,vars) +';\n';
     }
     return {'vars': vars, 'substitutedCode': substitutedCode};
@@ -249,8 +258,9 @@ function getColoredLines(line,func_and_global_vars) {
 
 function substituteVars(expression,func_and_global_vars) {
     Array.prototype.forEach.call(Object.keys(func_and_global_vars),(key) => {
-        let index;
-        while ((index = expression.search(key)) >= 0) {
+        let indices = getIndicesOf(key,expression);
+        indices.reverse();
+        Array.prototype.forEach.call(indices,(index)=>{
             let start_left = index, start_right = index + key.length - 1;
             while (expression[--start_left] === ' ') {/*MAGIC*/}
             while (expression[++start_right] === ' ') {/*MAGIC*/}
@@ -305,7 +315,8 @@ function substituteVars(expression,func_and_global_vars) {
                 }
                 expression = expression.substr(0, index) + new_string + expression.substr(index + key.length);
             }
-        }
+
+        });
     });
     return expression;
 }
@@ -318,12 +329,12 @@ function colorFunction(functionCode, input) {
     let function_vars = {};
     Array.prototype.forEach.call(parsedCode.body, (line) => {
         if(line.type === 'VariableDeclaration'){
-            if (line.declarations[0].type === 'VariableDeclarator') {
-                global_vars[line.declarations[0].id.name] =
-                    eval(escodegen.generate(line.declarations[0].init));
-            }
+            //if (line.declarations[0].type === 'VariableDeclarator') {
+            global_vars[line.declarations[0].id.name] =
+                eval(escodegen.generate(line.declarations[0].init));
+            //}
         }
-        else if(line.type === 'FunctionDeclaration') {
+        else /*if(line.type === 'FunctionDeclaration')*/ {
             _function = line;
         }
     });
