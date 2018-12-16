@@ -61,7 +61,25 @@ describe('The javascript parser', () => {
         assert.equal(parseCode(codeToParse, []), expectedResult);
     });
 
-    it('is coloring example from phase-b', () => {
+    it('is coloring example 1 from phase-b', () => {
+        let codeToParse = 'function foo(x, y, z){\n' +
+            '    let a = x + 1;\n' +
+            '    let b = a + y;\n' +
+            '    let c = 0;\n' +
+            '    \n' +
+            '    while (a < z) {\n' +
+            '        c = a + b;\n' +
+            '        z = c * 2;\n' +
+            '    }\n' +
+            '    \n' +
+            '    return z;\n' +
+            '}';
+        let expectedResult = 'function foo(x, y, z) {<br>&nbsp;&nbsp;&nbsp;&nbsp; while (x + 1 < z) {<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; z = (x + 1 + x + 1 + y) * 2;<br>&nbsp;&nbsp;&nbsp;&nbsp; }<br>&nbsp;&nbsp;&nbsp;&nbsp; return z;<br>\n' +
+            '}<br>';
+        assert.equal(parseCode(codeToParse, [1, 2, 3]), expectedResult);
+    });
+
+    it('is coloring example 2 from phase-b', () => {
         let codeToParse = 'function foo(x, y, z){\n' +
             '    let a = x + 1;\n' +
             '    let b = a + y;\n' +
@@ -116,6 +134,37 @@ describe('The javascript parser', () => {
     });
 
     it('is coloring big example 2', () => {
+        let codeToParse = 'let g1 = [\'ab\',\'bc\',\'cd\',\'de\'];\n' +
+            'function func777(x7,y7){\n' +
+            '    let a = x7+y7;\n' +
+            '    let b = y7+x7;\n' +
+            '\n' +
+            '    if(g1.indexOf(a) > -1){\n' +
+            '        return g2;\n' +
+            '    }\n' +
+            '    else if(g1.indexOf(b) > -1){\n' +
+            '        return g3;\n' +
+            '    }\n' +
+            '    else{\n' +
+            '        return undefined;\n' +
+            '    }\n' +
+            '}\n' +
+            'let g2 = true;\n' +
+            'let g3 = false;';
+        let expectedResult = 'let g1 = [\'ab\', \'bc\', \'cd\', \'de\'];<br>\n' +
+            '<br>\n' +
+            'function func777(x7, y7) {<br>\n' +
+            '<font color="red">&nbsp;&nbsp;&nbsp;&nbsp;if (g1.indexOf(x7 + y7) > -1) {</font><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return g2;<br>\n' +
+            '<font color="green">&nbsp;&nbsp;&nbsp;&nbsp;} else if (g1.indexOf(y7 + x7) > -1) {</font><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return g3;<br>\n' +
+            '<font color="red">&nbsp;&nbsp;&nbsp;&nbsp;} else {</font><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return undefined;<br>&nbsp;&nbsp;&nbsp;&nbsp; }<br>\n' +
+            '}<br>\n' +
+            'let g2 = true;<br>\n' +
+            'let g3 = false;<br>';
+        assert.equal(parseCode(codeToParse, ['\'c\'', '\'b\'']), expectedResult);
+
+    });
+
+    it('is coloring big example 3', () => {
         let codeToParse = 'let bb = 1;\n' +
             'let x = 3;\n' +
             'function goo(xx,xy,bbbabbbbbabb) {\n' +
@@ -144,7 +193,7 @@ describe('The javascript parser', () => {
         assert.equal(parseCode(codeToParse, [2, 5, 4]), expectedResult);
     });
 
-    it('is coloring big example 3', () => {
+    it('is coloring big example 4', () => {
         let codeToParse = 'let globalNumber1 = 0;\n' +
             'let globalNumber2 = 5;\n' +
             'let globalNumber3 = 10;\n' +
@@ -183,5 +232,26 @@ describe('The javascript parser', () => {
         assert.equal(parseCode(codeToParse, [0, 5, 10]), expectedResult);
     });
 
+    it('is coloring big example 5', () => {
+
+        let codeToParse = 'function secondsToTime(seconds_number){\n' +
+            '    let hours   = Math.floor(seconds_number / 3600);\n' +
+            '    let minutes = Math.floor((seconds_number - (hours * 3600)) / 60);\n' +
+            '    let seconds = seconds_number - (hours * 3600) - (minutes * 60);\n' +
+            '\n' +
+            '    if (hours   < 10) {hours   = \'0\'+hours;}\n' +
+            '    if (minutes < 10) {minutes = \'0\'+minutes;}\n' +
+            '    if (seconds < 10) {seconds = \'0\'+seconds;}\n' +
+            '    return hours+\':\'+minutes+\':\'+seconds;\n' +
+            '}';
+
+        let expectedResult = 'function secondsToTime(seconds_number) {<br>\n' +
+            '<font color="green">&nbsp;&nbsp;&nbsp;&nbsp;if (Math.floor(seconds_number / 3600) < 10) {}</font><br>\n' +
+            '<font color="red">&nbsp;&nbsp;&nbsp;&nbsp;if (Math.floor((seconds_number - ((Math.floor(seconds_number / 3600)) * 3600)) / 60) < 10) {}</font><br>\n' +
+            '<font color="red">&nbsp;&nbsp;&nbsp;&nbsp;if (seconds_number - ((Math.floor(seconds_number / 3600)) * 3600) - ((Math.floor((seconds_number - ((Math.floor(seconds_number / 3600)) * 3600)) / 60)) * 60) < 10) {}</font><br>&nbsp;&nbsp;&nbsp;&nbsp; return Math.floor(seconds_number / 3600) + \':\' + Math.floor((seconds_number - ((Math.floor(seconds_number / 3600)) * 3600)) / 60) + \':\' + seconds_number - ((Math.floor(seconds_number / 3600)) * 3600) - ((Math.floor((seconds_number - ((Math.floor(seconds_number / 3600)) * 3600)) / 60)) * 60);<br>\n' +
+            '}<br>';
+
+        assert.equal(parseCode(codeToParse, [2134]), expectedResult);
+    });
 
 });

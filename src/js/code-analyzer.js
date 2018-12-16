@@ -1,4 +1,6 @@
 /* eslint-disable max-lines-per-function,no-unused-vars,no-unused-function */
+/*eslint complexity: [0, 0]*/
+
 import * as esprima from 'esprima';
 import * as escodegen from 'escodegen';
 
